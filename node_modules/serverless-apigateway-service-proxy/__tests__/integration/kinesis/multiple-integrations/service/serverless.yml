@@ -1,0 +1,64 @@
+service: multiple-kinesis-proxy
+
+provider:
+  name: aws
+  runtime: nodejs10.x
+
+plugins:
+  localPath: './../../../../../../'
+  modules:
+    - serverless-apigateway-service-proxy
+
+custom:
+  apiGatewayServiceProxies:
+    - kinesis:
+        path: /kinesis1
+        method: post
+        streamName: { Ref: 'YourStream' }
+        cors: true
+    - kinesis:
+        path: /kinesis2
+        method: post
+        partitionKey: 'hardcordedkey' # use static partitionkey
+        streamName: { Ref: 'YourStream' }
+        cors: true
+    - kinesis:
+        path: /kinesis3/{myKey} # use path parameter
+        method: post
+        partitionKey:
+          pathParam: myKey
+        streamName: { Ref: 'YourStream' }
+        cors: true
+    - kinesis:
+        path: /kinesis4
+        method: post
+        partitionKey:
+          bodyParam: data.myKey # use body parameter
+        streamName: { Ref: 'YourStream' }
+        cors: true
+    - kinesis:
+        path: /kinesis5
+        method: post
+        partitionKey:
+          queryStringParam: myKey # use query string param
+        streamName: { Ref: 'YourStream' }
+        cors: true
+    - kinesis:
+        path: /kinesis6
+        action: PutRecord
+        method: post
+        streamName: { Ref: 'YourStream' }
+        cors: true
+    - kinesis:
+        path: /kinesis7
+        action: PutRecords
+        method: post
+        streamName: { Ref: 'YourStream' }
+        cors: true
+
+resources:
+  Resources:
+    YourStream:
+      Type: AWS::Kinesis::Stream
+      Properties:
+        ShardCount: 1

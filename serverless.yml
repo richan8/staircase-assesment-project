@@ -1,0 +1,115 @@
+org: richan8
+app: aws-python-attp-api-project
+service: aws-python-attp-api-project
+frameworkVersion: '3'
+
+custom:
+  blobs:
+    tableName: blobs-table
+    bucketName: richan8-serverless-api-project-blobs
+  #apiGatewayServiceProxies:
+  #  - dynamodb:
+  #      path: /blobs/{blobs_id}
+  #      method: get
+  #      tableName: { Ref: '${self:custom.blobs.tableName}' }
+  #      hashKey:
+  #        pathParam: id
+  #        attributeType: S
+  #      action: GetItem
+  #      cors: true
+
+provider:
+  name: aws
+  runtime: python3.8
+  environment:
+    BLOBS_TABLE: ${self:custom.blobs.tableName}
+    BLOBS_BUCKET: ${self:custom.blobs.bucketName}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:DescribeStream
+            - dynamodb:GetRecords
+            - dynamodb:GetShardIterator
+            - dynamodb:ListStreams
+          Resource:
+            - Fn::GetAtt: [ BlobsTable, Arn ]
+        - Effect: Allow
+          Action:
+            - s3:*
+          Resource: arn:aws:s3:::${self:custom.blobs.bucketName}/*
+        - Effect: Allow
+          Action:
+            - rekognition:*
+          Resource: '*'
+
+functions:
+  help:
+    handler: help.handler
+    events:
+      - httpApi:
+          path: '*'
+          method: '*'
+
+  getBlob:
+    handler: getBlob.handler
+    events:
+      - httpApi:
+          path: /blobs/{blob_id}
+          method: get
+
+  createBlob:
+    handler: createBlob.handler
+    events:
+      - httpApi:
+          path: /blobs
+          method: post
+  
+  processBlob:
+    handler: processBlob.handler
+    events:
+      - s3:
+          bucket: ${self:custom.blobs.bucketName}
+          event: s3:ObjectCreated:*
+
+  makeCallback:
+    handler: makeCallback.handler
+    events:
+      - stream:
+          type: dynamodb
+          arn:
+            Fn::GetAtt:
+              - BlobsTable
+              - StreamArn
+          batchSize: 1
+  
+  testCallback:
+    handler: testCallback.handler
+    events:
+      - httpApi:
+          path: '/test_callback'
+          method: post
+
+resources:
+  Resources:
+    BlobsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.blobs.tableName}
+        AttributeDefinitions:
+          - AttributeName: blob_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: blob_id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        StreamSpecification:
+          StreamViewType: NEW_IMAGE
+
+plugins:
+  - serverless-python-requirements
